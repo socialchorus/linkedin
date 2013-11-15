@@ -107,29 +107,49 @@ module LinkedIn
       end
 
       def simple_query(path, options={})
+        request_params = extract_request_params(options)
 
-        fields = options.delete(:fields) || LinkedIn.default_profile_fields
-
-        if options.delete(:public)
+        if request_params.fetch(:public?)
           path +=":public"
-        elsif fields
-          path +=":(#{fields.map{ |f| f.to_s.gsub("_","-") }.join(',')})"
+        elsif request_params.fetch(:fields)
+          mapped_fields = request_params.fetch(:fields).map do |f|
+            f.to_s.gsub("_","-")
+          end
+          path +=":(#{mapped_fields.join(',')})"
         end
 
-        headers = options.delete(:headers) || {}
-        params = to_query(options.reject {|k,v| %i[id].include?(k) })
-
+        headers = request_params.fetch(:headers)
+        params = to_query(request_params.fetch(:params))
         path   += "#{path.include?("?") ? "&" : "?"}#{params}" if !params.empty?
 
         Mash.from_json(get(path, headers))
       end
 
+      def extract_request_params(options)
+        fields = options.fetch(:fields, LinkedIn.default_profile_fields)
+
+        pub = !!options.fetch(:public, false)
+
+        headers = options.fetch(:headers, {})
+
+        params = options.reject do |k,_|
+          [:domain, :is_admin, :name, :id, :public, :fields, :headers].include?(k)
+        end
+
+        {
+          :fields => fields,
+          :public? => pub,
+          :headers => headers,
+          :params => params
+        }
+      end
+
       def person_path(options)
         path = "/people/"
-        if id = options.delete(:id)
-          path += "id=#{id}"
-        elsif url = options.delete(:url)
-          path += "url=#{CGI.escape(url)}"
+        if options.has_key?(:id)
+          path += "id=#{options.fetch(:id)}"
+        elsif options.has_key?(:url)
+          path += "url=#{CGI.escape(options.fetch(:url))}"
         else
           path += "~"
         end
@@ -138,16 +158,16 @@ module LinkedIn
       def company_path(options)
         path = "/companies"
 
-        if domain = options.delete(:domain)
-          path += "?email-domain=#{CGI.escape(domain)}"
-        elsif id = options.delete(:id)
-          path += "/id=#{id}"
-        elsif url = options.delete(:url)
-          path += "/url=#{CGI.escape(url)}"
-        elsif name = options.delete(:name)
-          path += "/universal-name=#{CGI.escape(name)}"
-        elsif is_admin = options.delete(:is_admin)
-          path += "?is-company-admin=#{CGI.escape(is_admin)}"
+        if options.has_key?(:domain)
+          path += "?email-domain=#{CGI.escape(options.fetch(:domain))}"
+        elsif options.has_key?(:id)
+          path += "/id=#{options.fetch(:id)}"
+        elsif options.has_key?(:url)
+          path += "/url=#{CGI.escape(options.fetch(:url))}"
+        elsif options.has_key?(:name)
+          path += "/universal-name=#{CGI.escape(options.fetch(:name))}"
+        elsif options.has_key?(:is_admin)
+          path += "?is-company-admin=#{CGI.escape(options.fetch(:is_admin))}"
         else
           path += "/~"
         end
@@ -160,8 +180,8 @@ module LinkedIn
 
       def jobs_path(options)
         path = "/jobs"
-        if id = options.delete(:id)
-          path += "/id=#{id}"
+        if options.has_key?(:id)
+          path += "/id=#{options.fetch(:id)}"
         else
           path += "/~"
         end
