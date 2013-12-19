@@ -110,6 +110,8 @@ module LinkedIn
           path +=":public"
         elsif fields
           path +=":(#{fields.map{ |f| f.to_s.gsub("_","-") }.join(',')})"
+        elsif options[:key].present?
+          path +="/key=#{options[:key]}/"
         end
 
         headers = options.delete(:headers) || {}
